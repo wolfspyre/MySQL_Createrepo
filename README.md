@@ -1,4 +1,9 @@
 MySQL_Createrepo
 ================
+This is a simple script to download a list of the RPMs released for the various major version of MySQL
+It will then parse it, and subsequently download the needed RPMs
+Afterwards, it will place them into a directory structure condusive to a yum reposiroty tree, and can do the createrepo part.
 
-a script to pull packages from Oracle's MySQL packages and subsequently create yum repos from the result
+
+This script is copyright 2012 Datapipe. 
+It's not perfect yet, suggestions/fixes are welcome.
