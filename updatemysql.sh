@@ -1,6 +1,6 @@
 #!/bin/bash
 #script to get rh packages from rhel
-#v0.6
+#v0.7
 #
 #Copyright 2012 Datapipe
 #  Wolf Noble <wnoble@datapipe.com>
@@ -16,6 +16,7 @@ GET51=true
 GET55=true
 GET56=true
 UPDATEREPO=true
+ARCHIVEONLY=false
 TOPDIR="/repo/vendor/mysql"
 export TOPDIR
 export UPDATEREPO
@@ -48,6 +49,85 @@ checkDirs() {
   if [ $debug -gt 0 ]; then echo ;fi
 }
 checkDirs
+getArchive() {
+  if [ $debug -gt 0 ]; then echo "DEBUG: getArchive ";fi
+  if [ -z $1 ]; then 
+    echo "getArchive did not get an architecture. cannot continue"; exit 1;
+  elif [ -z $2 ]; then
+    echo "getArchive did not get told whether to pull the RPMs for ${1}. Cannot continue"; exit 1;
+  elif [ -z $3 ]; then
+    echo "getArchive did not get told which major os version to pull the RPMs for ${1}. Cannot continue"; exit 1;
+  elif [ -z $4 ]; then
+    echo "getArchive did not get told if we are to download RPMs for ${2} ${1}. Cannot continue"; exit 1;
+  elif [ -z $5 ]; then
+    echo "getArchive did not get told what version of mysql to download RPMs ${2} ${1}. Cannot continue"; exit 1;
+  elif [ -z $6 ]; then
+    echo "getArchive did not get told if we are to download RPMs for ${2} ${1} MySQL ${5}. Cannot continue"; exit 1;
+  else
+    ARCH=$1
+    ENABLE=$2
+    MAJORENABLE=$4
+    VERSIONENABLE=$6
+    if [ $3 -eq 5 ]; then
+      MAJORPATTERN='rhel5'
+      MAJOR=5
+    elif [ $3 -eq 6 ]; then
+     MAJORPATTERN='el6'
+     MAJOR=6
+    else
+      echo "got unexpected value of $3 for OSMajor. expecting 5 or 6. cannot continue"; exit 1
+    fi
+    if [ $5 -eq 51 ]; then
+      NODOTVER=51
+      DOTVER="5.1"
+    elif [ $5 -eq 55 ]; then
+      NODOTVER=55
+      DOTVER="5.5"
+    elif [ $5 -eq 56 ]; then
+      NODOTVER=56
+      DOTVER="5.6"
+    else
+      echo "got unexpected value of $5 for MySQL version. expecting 51 55 or 56. Cannot continue";exit 1
+    fi
+  fi
+
+  if [ $MAJORENABLE == "true" ]; then
+    if [ $ENABLE == "true" ]; then
+      if [ $VERSIONENABLE == "true" ]; then
+        if [ $debug -gt 2 ]; then echo "DEBUG: getArchive: ${MAJORPATTERN} ${ARCH} MySQL${DOTVER}  true";fi
+        #now we should change into the package directory and get the packages
+        cd ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages
+        NUM=`/bin/grep ${ARCH} ${FILE} |/bin/grep ${MAJORPATTERN}|wc -l`
+        NUMPRESENT=0
+        echo
+        echo  "(Archive) MySQL ${DOTVER} ${MAJORPATTERN} ${ARCH}"
+        for pkgfile in `/bin/grep ${ARCH} ${FILE} |/bin/grep ${MAJORPATTERN}|awk -Fmysql-${DOTVER}/ '{print $2}'`; do
+          if [[ -f ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/${pkgfile} && `/bin/rpm -K --nogpg ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/${pkgfile}>/dev/null 2>&1; echo $?` -eq 0  ]]; then
+            #file exists
+            let "NUMPRESENT=NUMPRESENT+1"
+            if [ ${NUMPRESENT} -lt ${NUM} ]; then
+              echo -n "."
+            fi
+          else
+            #we have to get the file
+            echo -n "${NUMPRESENT} / ${NUM}" 
+            /usr/bin/wget  http://downloads.mysql.com/archives/mysql-${DOTVER}/${pkgfile} -O ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/${pkgfile}  >/dev/null 2>&1
+            if [ $? -eq 0 ]; then echo -en '\r' ; else echo "Download of http://downloads.mysql.com/archives/mysql-${DOTVER}/${pkgfile} failed!"; exit 1;fi
+            let "NUMPRESENT=NUMPRESENT+1"
+          fi
+        done
+      else
+        if [ $debug -gt 2 ]; then echo "DEBUG: getArchive: ${MAJORPATTERN} ${ARCH}  MySQL${DOTVER} false";fi
+      fi
+    else
+      if [ $debug -gt 2 ]; then echo "DEBUG: getArchive: ${ARCH} false";fi
+    fi
+  else
+    if [ $debug -gt 2 ]; then echo "DEBUG: getArchive: ${MAJORPATTERN} false";fi
+  fi
+
+  if [ $debug -gt 0 ]; then echo ;fi
+}
 getPkg() {
   if [ $debug -gt 0 ]; then echo "DEBUG: getPkg ";fi
   if [ -z $1 ]; then 
@@ -96,11 +176,13 @@ getPkg() {
         if [ $debug -gt 2 ]; then echo "DEBUG: getPkg: ${MAJORPATTERN} ${ARCH} MySQL${DOTVER}  true";fi
         #now we should change into the package directory and get the packages
         cd ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages
-        NUM=`/bin/grep ${ARCH} ${FILE} |/bin/grep ${MAJORPATTERN}|wc -l`
+        NUM=`/bin/grep ${ARCH} ${TEMPFILE} |/bin/grep ${MAJORPATTERN}|wc -l`
+        if [ $debug -gt 5 ]; then echo "Total number of ${ARCH} ${MAJORPATTERN} packages in ${TEMPFILE} file: ${NUM}";fi
         NUMPRESENT=0
         echo
         echo  "MySQL ${DOTVER} ${MAJORPATTERN} ${ARCH}"
-        for pkgfile in `/bin/grep ${ARCH} ${FILE} |/bin/grep ${MAJORPATTERN}|awk -Fmysql-${DOTVER}/ '{print $2}'`; do
+        for url in `/bin/grep ${ARCH} ${TEMPFILE} |/bin/grep ${MAJORPATTERN}`; do
+          pkgfile=`echo ${url}|awk -F\/ '{print $6}'`
           if [[ -f ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/${pkgfile} && `/bin/rpm -K --nogpg ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/${pkgfile}>/dev/null 2>&1; echo $?` -eq 0  ]]; then
             #file exists
             let "NUMPRESENT=NUMPRESENT+1"
@@ -110,8 +192,8 @@ getPkg() {
           else
             #we have to get the file
             echo -n "${NUMPRESENT} / ${NUM}" 
-            /usr/bin/wget  http://downloads.mysql.com/archives/mysql-${DOTVER}/${pkgfile} -O ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/${pkgfile}  >/dev/null 2>&1
-            if [ $? -eq 0 ]; then echo -en '\r' ; else echo "Download of http://downloads.mysql.com/archives/mysql-${DOTVER}/${pkgfile} failed!"; exit 1;fi
+            /usr/bin/wget  ${url} -O ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/${pkgfile} >/dev/null 2>&1
+            if [ $? -eq 0 ]; then echo -en '\r' ; else echo "Download of ${url} failed!"; exit 1;fi
             let "NUMPRESENT=NUMPRESENT+1"
           fi
         done
@@ -160,33 +242,33 @@ updateRepo() {
     echo "DEBUG: updateRepo: UPDATEREPO = ${UPDATEREPO}. Not updating repos";
   fi
 }
-getTmp() {
-  if [ $debug -gt 0 ]; then echo "DEBUG: getTmp: $1";fi
+getArchTmp() {
+  if [ $debug -gt 0 ]; then echo "DEBUG: getArchTmp: $1";fi
   if [ -z $1 ]; then 
-    echo "getTmp did not get a MySQL Version. cannot continue"; exit 1;
+    echo "getArchTmp did not get a MySQL Version. cannot continue"; exit 1;
   fi
     if [ $1 -eq 51 ]; then
       NODOTVER=51
       DOTVER="5.1"
       GET=$GET51
-      TEMPFILE=/tmp/TEMPmysql51`date +%m%d%y-%H`
-      FILE=/tmp/mysql51`date +%m%d%y-%H`
+      TEMPFILE=/tmp/ARCHTEMPmysql51`date +%m%d%y-%H`
+      FILE=/tmp/ARCHmysql51`date +%m%d%y-%H`
       export FILE
       export TEMPFILE
     elif [ $1 -eq 55 ]; then
       NODOTVER=55
       DOTVER="5.5"
       GET=$GET55
-      TEMPFILE=/tmp/TEMPmysql55`date +%m%d%y-%H`
-      FILE=/tmp/mysql55`date +%m%d%y-%H`
+      TEMPFILE=/tmp/ARCHTEMPmysql55`date +%m%d%y-%H`
+      FILE=/tmp/ARCHmysql55`date +%m%d%y-%H`
       export FILE
       export TEMPFILE
     elif [ $1 -eq 56 ]; then
       NODOTVER=56
       DOTVER="5.6"
       GET=$GET56
-      TEMPFILE=/tmp/TEMPmysql56`date +%m%d%y-%H`
-      FILE=/tmp/mysql56`date +%m%d%y-%H`
+      TEMPFILE=/tmp/ARCHTEMPmysql56`date +%m%d%y-%H`
+      FILE=/tmp/ARCHmysql56`date +%m%d%y-%H`
       export FILE
       export TEMPFILE
     else
@@ -202,17 +284,83 @@ getTmp() {
   if [ $? -eq 0 ]; then echo -n .; else echo "fixup of downloaded page failed. Fix!"; exit 1;fi
   sed -n -e '/downloads.mysql.com/{p;n}' ${TEMPFILE} > ${FILE} 
   if [ $? -eq 0 ]; then echo -n .; else echo "fixup of ${TEMPFILE}  into ${FILE} failed. Fix!"; exit 1;fi
-  getPkg "i386" $GETi386 5 $GET5 $NODOTVER $GET
-  getPkg "x86_64" $GETx86_64 5 $GET5 $NODOTVER $GET
+  getArchive "i386" $GETi386 5 $GET5 $NODOTVER $GET
+  getArchive "x86_64" $GETx86_64 5 $GET5 $NODOTVER $GET
   if [ $NODOTVER -gt 52 ]; then 
+    getArchive "i386" $GETi386 6 $GET6 $NODOTVER $GET
+    getArchive "x86_64" $GETx86_64 6 $GET6 $NODOTVER $GET
+  fi
+  if [ $debug -gt 0 ]; then echo "Not cleaning up, as debug is enabled. please delete ${TEMPFILE} and ${FILE} manually"; else cleanUp;fi
+} 
+getTmp() {
+  if [ $debug -gt 0 ]; then echo "DEBUG: getTmp: $1";fi
+  if [ -z $1 ]; then 
+    echo "getTmp did not get a MySQL Version. cannot continue"; exit 1;
+  fi
+  if [ -z $2 ]; then
+    echo "getTmp did not get an OS major version. Cannot continue."; exit 1;
+  fi
+  #set mysql variables
+  if [ $1 -eq 51 ]; then
+    NODOTVER=51
+    DOTVER="5.1"
+    GET=$GET51
+    TEMPFILE=/tmp/TEMPmysql51`date +%m%d%y-%H`
+    FILE=/tmp/mysql51`date +%m%d%y-%H`
+    export FILE
+    export TEMPFILE
+  elif [ $1 -eq 55 ]; then
+    NODOTVER=55
+    DOTVER="5.5"
+    GET=$GET55
+    TEMPFILE=/tmp/TEMPmysql55`date +%m%d%y-%H`
+    FILE=/tmp/mysql55`date +%m%d%y-%H`
+    export FILE
+    export TEMPFILE
+  elif [ $1 -eq 56 ]; then
+    NODOTVER=56
+    DOTVER="5.6"
+    GET=$GET56
+    TEMPFILE=/tmp/TEMPmysql56`date +%m%d%y-%H`
+    FILE=/tmp/mysql56`date +%m%d%y-%H`
+    export FILE
+    export TEMPFILE
+  else
+    echo "got unexpected value of $5 for MySQL version. expecting 51 55 or 56. Cannot continue";exit 1
+  fi
+  #set OS Major variables
+  if [ $2 -eq 5 ]; then
+    OSVAR=7
+    PKGMATCH="rhel5"
+  elif [ $2 -eq 6 ]; then
+    OSVAR=31
+    PKGMATCH="el6"
+  else
+    echo "got unexpected value of $2 for OS Major version. Expecting 5 or 6. Cannot continue"; exit 1
+  fi
+
+  if [ $debug -gt 2 ]; then 
+    echo "Running: /usr/bin/curl -F \"current_os=${OSVAR},version=${DOTVER}\" http://dev.mysql.com/downloads/mysql/#downloads -o ${TEMPFILE}"
+    /usr/bin/curl -F "current_os=${OSVAR},version=${DOTVER}" http://dev.mysql.com/downloads/mysql/#downloads -o ${TEMPFILE}
+  else
+    /usr/bin/curl -s -F "current_os=${OSVAR},version=${DOTVER}" http://dev.mysql.com/downloads/mysql/#downloads -o ${TEMPFILE}
+  fi
+  if [ $? -eq 0 ]; then echo -n .; else echo "Download of file failed. Fix!"; exit 1;fi
+  awk -Fhref=\" '/mirror.php/ {print $2}' ${TEMPFILE} |awk -F\" '{print "http://dev.mysql.com"$1}' > ${FILE}
+  if [ $? -eq 0 ]; then echo -n .; else echo "fixup of downloaded page failed. Fix!"; exit 1;fi
+  if [ $debug -gt 2 ]; then echo "getTmp: DEBUG: getting real URL for"; fi
+  > ${TEMPFILE}
+  for URL in `cat ${FILE}`; do
+     if [ $debug -gt 2 ]; then echo ${URL};fi
+     curl -s ${URL}|awk -Fhref=\"\/get '/cdn/ {print $2}'|awk -Frpm '{print "http://cdn.mysql.com"$1"rpm"}' >> ${TEMPFILE}
+  done
+  if [ $? -eq 0 ]; then echo -n .; else echo "fixup of ${TEMPFILE}  into ${FILE} failed. Fix!"; exit 1;fi
+  if [ $2 -eq 5 ]; then
+    getPkg "i386" $GETi386 5 $GET5 $NODOTVER $GET
+    getPkg "x86_64" $GETx86_64 5 $GET5 $NODOTVER $GET
+  elif [ $2 -eq 6 ]; then 
     getPkg "i386" $GETi386 6 $GET6 $NODOTVER $GET
     getPkg "x86_64" $GETx86_64 6 $GET6 $NODOTVER $GET
-  fi
-  updateRepo 5 i386   $DOTVER $GETi386
-  updateRepo 5 x86_64 $DOTVER $GETx86_64
-  if [ $NODOTVER -gt 52 ]; then
-    updateRepo 6 i386   $DOTVER $GETi386
-    updateRepo 6 x86_64 $DOTVER $GETx86_64
   fi
   if [ $debug -gt 0 ]; then echo "Not cleaning up, as debug is enabled. please delete ${TEMPFILE} and ${FILE} manually"; else cleanUp;fi
 } 
@@ -221,6 +369,18 @@ cleanUp() {
   echo
   echo "Done!"
 }
-getTmp 51
-getTmp 55
-getTmp 56
+getArchTmp 51
+getArchTmp 55
+getTmp 55 5
+getTmp 55 6
+getArchTmp 56
+getTmp 56 5
+getTmp 56 6
+for UpdateVERSION in 5.1 5.5 5.6; do
+  updateRepo 5 i386   ${UpdateVERSION} $GETi386
+  updateRepo 5 x86_64 ${UpdateVERSION} $GETx86_64
+done
+for UpdateVERSION in 5.5 5.6; do
+  updateRepo 6 i386   ${UpdateVERSION} $GETi386
+  updateRepo 6 x86_64 ${UpdateVERSION} $GETx86_64
+done
