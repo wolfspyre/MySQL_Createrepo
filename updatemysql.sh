@@ -1,6 +1,6 @@
 #!/bin/bash
 #script to get rh MySQL packages from Oracle
-#v0.8
+#v0.9
 #
 # By Default. This script will not provide any output if things work properly.
 # to see what's going on. add a numeric verbosity indicator after the script:
@@ -17,9 +17,9 @@ GET5=true
 GET6=true
 GETx86_64=true
 GETi386=false
-GET51=true
+GET51=false
 GET55=true
-GET56=true
+GET56=false
 UPDATEREPO=true
 ARCHIVEONLY=false
 TOPDIR="/repo/vendor/mysql"
@@ -240,9 +240,27 @@ updateRepo() {
       if [ -d ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER} ]; then
         #the directory exists.
         if [ $debug -gt 1 ]; then 
+         #Since Oracle seems to keep changing things. Lets make sure to prune any 5.6 pkgs from 5.5 repos
+          if [ $DOTVER == "5.5" ]; then 
+            echo -n "Checking to make sure no 5.6 packages exist in a 5.5 repo dir"
+            if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-5\.6.'|wc -l` -gt 1 ]; then
+              echo " Found a match:"; ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages| grep '\-5\.6.';
+              echo "Removing the matching files. If the files match erroneously, we'll need to refine the grep"
+              cd ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages; rm -f  ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/*\-5\.6.*;
+            fi
+          fi
           echo; /usr/bin/createrepo -s sha -v ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}
         else
          if [ $debug -gt 0 ]; then echo; /usr/bin/createrepo -s sha ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER} ; echo -n ".";
+         #Since Oracle seems to keep changing things. Lets make sure to prune any 5.6 pkgs from 5.5 repos
+          if [ $DOTVER == "5.5" ]; then
+            if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-5\.6.'|wc -l` -gt 1 ]; then
+              echo -n "Checking to make sure no 5.6 packages exist in a 5.5 repo dir"
+              echo " Found a match:"; ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages| grep '\-5\.6.';
+              echo "Removing the matching files. If the files match erroneously, we'll need to refine the grep"
+              cd ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages; rm -f  ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/*\-5\.6.*;
+            fi
+          fi         
          else /usr/bin/createrepo -s sha ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER} >/dev/null 2>&1;
          fi
         fi
@@ -364,9 +382,9 @@ getTmp() {
 
   if [ $debug -gt 2 ]; then 
     echo "Running: /usr/bin/curl -F \"current_os=${OSVAR},version=${DOTVER}\" http://dev.mysql.com/downloads/mysql/#downloads -o ${TEMPFILE}"
-    /usr/bin/curl -F "current_os=${OSVAR},version=${DOTVER}" http://dev.mysql.com/downloads/mysql/#downloads -o ${TEMPFILE}
+    /usr/bin/curl -F "current_os=${OSVAR},version=${DOTVER}" http://dev.mysql.com/downloads/mysql/${DOTVER}.html#downloads -o ${TEMPFILE}
   else
-    /usr/bin/curl -s -F "current_os=${OSVAR},version=${DOTVER}" http://dev.mysql.com/downloads/mysql/#downloads -o ${TEMPFILE}
+    /usr/bin/curl -s -F "current_os=${OSVAR},version=${DOTVER}" http://dev.mysql.com/downloads/mysql/${DOTVER}.html#downloads -o ${TEMPFILE}
   fi
   if [ $? -eq 0 ]; then if [ $debug -gt 0 ]; then echo -n .;fi; else echo "Download of file failed. Fix!"; exit 1;fi
   awk -Fhref=\" '/mirror.php/ {print $2}' ${TEMPFILE} |awk -F\" '{print "http://dev.mysql.com"$1}' > ${FILE}
