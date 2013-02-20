@@ -240,7 +240,7 @@ updateRepo() {
       if [ -d ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER} ]; then
         #the directory exists.
         if [ $debug -gt 1 ]; then 
-         #Since Oracle seems to keep changing things. Lets make sure to prune any 5.6 pkgs from 5.5 repos
+          #Since Oracle seems to keep changing things. Lets make sure to prune any 5.6 pkgs from 5.5 repos
           if [ $DOTVER == "5.5" ]; then 
             echo -n "Checking to make sure no 5.6 packages exist in a 5.5 repo dir"
             if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-5\.6.'|wc -l` -gt 1 ]; then
@@ -251,8 +251,8 @@ updateRepo() {
           fi
           echo; /usr/bin/createrepo -s sha -v ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}
         else
-         if [ $debug -gt 0 ]; then echo; /usr/bin/createrepo -s sha ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER} ; echo -n ".";
-         #Since Oracle seems to keep changing things. Lets make sure to prune any 5.6 pkgs from 5.5 repos
+          if [ $debug -gt 0 ]; then echo; /usr/bin/createrepo -s sha ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER} ; echo -n ".";
+          #Since Oracle seems to keep changing things. Lets make sure to prune any 5.6 pkgs from 5.5 repos
           if [ $DOTVER == "5.5" ]; then
             if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-5\.6.'|wc -l` -gt 1 ]; then
               echo -n "Checking to make sure no 5.6 packages exist in a 5.5 repo dir"
@@ -261,7 +261,15 @@ updateRepo() {
               cd ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages; rm -f  ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/*\-5\.6.*;
             fi
           fi         
-         else /usr/bin/createrepo -s sha ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER} >/dev/null 2>&1;
+        else /usr/bin/createrepo -s sha ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER} >/dev/null 2>&1;
+          #Since Oracle seems to keep changing things. Lets make sure to prune any 5.6 pkgs from 5.5 repos
+          if [ $DOTVER == "5.5" ]; then 
+            if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-5\.6.'|wc -l` -gt 1 ]; then
+              echo " Found 5.6 packages in a 5.5 repo:"; ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages| grep '\-5\.6.';
+              echo "Removing the matching files. If the files match erroneously, we'll need to refine the grep"
+              cd ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages; rm -f  ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/*\-5\.6.*;
+            fi
+          fi
          fi
         fi
       else
