@@ -1,5 +1,7 @@
 #!/bin/bash
 #script to get rh MySQL packages from Oracle
+# The latest version of this script can always be found here:
+#  git@github.com:wolfspyre/MySQL_Createrepo.git
 #v1.0
 #
 # By Default. This script will not provide any output if things work properly.
