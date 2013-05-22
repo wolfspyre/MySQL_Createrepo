@@ -2,11 +2,11 @@
 #script to get rh MySQL packages from Oracle
 # The latest version of this script can always be found here:
 #  git@github.com:wolfspyre/MySQL_Createrepo.git
-#v1.0
+#v1.0.1
 #
 # By Default. This script will not provide any output if things work properly.
 # to see what's going on. add a numeric verbosity indicator after the script:
-# ./updatemysql.sh 
+# ./updatemysql.sh
 #    will be silent
 # ./updatemysql.sh 1
 #    will provide some output.. Higher numbers will provide more verbosity.
@@ -34,10 +34,10 @@ preReqs() {
   #make sure required binaries exist
   if [ $debug -gt 1 ]; then echo "DEBUG: preReqs";fi
     for file in /bin/awk /bin/grep /bin/rpm /bin/sed /usr/bin/createrepo /usr/bin/wc /usr/bin/wget; do
-    if [ ! -f ${file} ]; then 
-      /bin/echo " ${file} not found. Cannot continue"; exit 1; 
-    else 
-      if [ $debug -gt 0 ]; then /bin/echo -n ".";fi; 
+    if [ ! -f ${file} ]; then
+      /bin/echo " ${file} not found. Cannot continue"; exit 1;
+    else
+      if [ $debug -gt 0 ]; then /bin/echo -n ".";fi;
     fi
   done
   if [ $debug -gt 1 ]; then echo ;fi
@@ -46,16 +46,16 @@ preReqs
 checkDirs() {
   #make sure the directories we expect to be in place are
   if [ $debug -gt 1 ]; then echo "DEBUG: checkDirs";fi
-  for osmajor in 5 6; do 
-    for arch in i386 x86_64; do 
-      for version in 1 5 6; do 
+  for osmajor in 5 6; do
+    for arch in i386 x86_64; do
+      for version in 1 5 6; do
         if [[ ${osmajor} -eq 6 && ${version} -eq 1 ]];then if [ $debug -gt 0 ]; then echo -n "." ;fi ;else
           for dir in  ${TOPDIR}/${osmajor}/${arch}/5.${version} ${TOPDIR}/${osmajor}/${arch}/5.${version}/Packages ${TOPDIR}/${osmajor}/${arch}/5.${version}/repodata; do
-            if [ ! -d ${dir} ]; then 
-              /bin/echo;/bin/echo " ${dir} doesn't exist. creating"; mkdir -p ${dir}; 
-              if [ $? -ne 0 ]; then 
-                echo "Couldn't create. exiting!"; exit 1; 
-              fi 
+            if [ ! -d ${dir} ]; then
+              /bin/echo;/bin/echo " ${dir} doesn't exist. creating"; mkdir -p ${dir};
+              if [ $? -ne 0 ]; then
+                echo "Couldn't create. exiting!"; exit 1;
+              fi
             else
               if [ $debug -gt 0 ]; then /bin/echo -n ".";fi;
             fi
@@ -69,7 +69,7 @@ checkDirs() {
 checkDirs
 getArchive() {
   if [ $debug -gt 1 ]; then echo "DEBUG: getArchive ";fi
-  if [ -z $1 ]; then 
+  if [ -z $1 ]; then
     echo "getArchive did not get an architecture. cannot continue"; exit 1;
   elif [ -z $2 ]; then
     echo "getArchive did not get told whether to pull the RPMs for ${1}. Cannot continue"; exit 1;
@@ -147,7 +147,7 @@ getArchive() {
 }
 getPkg() {
   if [ $debug -gt 1 ]; then echo "DEBUG: getPkg ";fi
-  if [ -z $1 ]; then 
+  if [ -z $1 ]; then
     echo "getPkg did not get an architecture. cannot continue"; exit 1;
   elif [ -z $2 ]; then
     echo "getPkg did not get told whether to pull the RPMs for ${1}. Cannot continue"; exit 1;
@@ -245,7 +245,7 @@ updateRepo() {
           #
           #Extra debug and noise version
           #Since Oracle seems to keep changing things. Lets make sure to prune any 5.6 pkgs from 5.5 repos
-          if [ $DOTVER == "5.5" ]; then 
+          if [ $DOTVER == "5.5" ]; then
             echo -n "Checking to make sure no 5.6 packages exist in a 5.5 repo dir"
             if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-5\.6.'|wc -l` -gt 1 ]; then
               echo " Found a match:"; ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages| grep '\-5\.6.';
@@ -254,7 +254,7 @@ updateRepo() {
             fi
           fi
           #Since Oracle seems to keep changing things. Lets make sure to prune any 5.5 pkgs from 5.6 repos
-          if [ $DOTVER == "5.6" ]; then 
+          if [ $DOTVER == "5.6" ]; then
             echo -n "Checking to make sure no 5.5 packages exist in a 5.6 repo dir"
             if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-5\.5.'|wc -l` -gt 1 ]; then
               echo " Found a match:"; ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages| grep '\-5\.5.';
@@ -266,7 +266,7 @@ updateRepo() {
         else
           if [ $debug -gt 0 ]; then echo; /usr/bin/createrepo -s sha ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER} ; echo -n ".";
           #
-          # Only say anything if we actually find a match, but since Oracle seems to keep changing things. 
+          # Only say anything if we actually find a match, but since Oracle seems to keep changing things.
           # Lets make sure to prune any 5.6 pkgs from 5.5 repos
           if [ $DOTVER == "5.5" ]; then
             if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-5\.6.'|wc -l` -gt 1 ]; then
@@ -277,25 +277,25 @@ updateRepo() {
             fi
           fi
           #Since Oracle seems to keep changing things. Lets make sure to prune any 5.5 pkgs from 5.6 repos
-          if [ $DOTVER == "5.6" ]; then 
+          if [ $DOTVER == "5.6" ]; then
             if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-5\.5.'|wc -l` -gt 1 ]; then
               echo -n "Checking to make sure no 5.5 packages exist in a 5.6 repo dir"
               echo " Found a match:"; ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages| grep '\-5\.5.';
               echo "Removing the matching files. If the files match erroneously, we'll need to refine the grep"
               cd ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages; rm -f  ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/*\-5\.5.*;
             fi
-          fi    
+          fi
         else /usr/bin/createrepo -s sha ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER} >/dev/null 2>&1;
           #Lets be super quiet about this.
           #Since Oracle seems to keep changing things. Lets make sure to prune any 5.6 pkgs from 5.5 repos
-          if [ $DOTVER == "5.5" ]; then 
+          if [ $DOTVER == "5.5" ]; then
             if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-5\.6.'|wc -l` -gt 1 ]; then
               echo " Found 5.6 packages in a 5.5 repo:"; ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages| grep '\-5\.6.';
               echo "Removing the matching files. If the files match erroneously, we'll need to refine the grep"
               cd ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages; rm -f  ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/*\-5\.6.*;
             fi
           fi
-          if [ $DOTVER == "5.6" ]; then 
+          if [ $DOTVER == "5.6" ]; then
             if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-5\.5.'|wc -l` -gt 1 ]; then
               echo " Found 5.5 packages in a 5.6 repo:"; ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages| grep '\-5\.5.';
               echo "Removing the matching files. If the files match erroneously, we'll need to refine the grep"
@@ -310,13 +310,13 @@ updateRepo() {
     else
       if [ $debug -gt 1 ]; then echo "DEBUG: updateRepo: skipping RH${MAJOR} ${ARCH} MySQL ${DOTVER}";else echo -n ".";fi
     fi
-  else 
+  else
     echo "DEBUG: updateRepo: UPDATEREPO = ${UPDATEREPO}. Not updating repos";
   fi
 }
 getArchTmp() {
   if [ $debug -gt 1 ]; then echo "DEBUG: getArchTmp: $1";fi
-  if [ -z $1 ]; then 
+  if [ -z $1 ]; then
     echo "getArchTmp did not get a MySQL Version. cannot continue"; exit 1;
   fi
     if [ $1 -eq 51 ]; then
@@ -346,36 +346,39 @@ getArchTmp() {
     else
       echo "got unexpected value of $5 for MySQL version. expecting 51 55 or 56. Cannot continue";exit 1
     fi
-  if [ $debug -gt 2 ]; then 
+  if [ $debug -gt 2 ]; then
     /usr/bin/wget http://downloads.mysql.com/archives.php?p=mysql-${DOTVER}\&o=rpm -O ${TEMPFILE}
   else
-    /usr/bin/wget http://downloads.mysql.com/archives.php?p=mysql-${DOTVER}\&o=rpm -O ${TEMPFILE}>/dev/null 2>&1 
+    /usr/bin/wget http://downloads.mysql.com/archives.php?p=mysql-${DOTVER}\&o=rpm -O ${TEMPFILE}>/dev/null 2>&1
   fi
-  if [ $? -eq 0 ]; then 
-    if [ $debug -gt 0 ]; then echo -n .;fi; 
+  if [ $? -eq 0 ]; then
+    if [ $debug -gt 0 ]; then echo -n .;fi;
   else echo "Download of file failed. Fix!"; exit 1;
   fi
-  sed -i -e 's/^.*\/archives/http:\/\/downloads.mysql.com\/archives/' -e 's/.rpm.*/.rpm/' ${TEMPFILE}
+  #
+  # Normalize the links into their expected urls and
+  # remove links that are for pre-GA software, as per REPO-13
+  sed -i -e 's/^.*\/archives/http:\/\/downloads.mysql.com\/archives/' -e 's/.rpm.*/.rpm/' -e 's/^.*_m[0-9]-[0-9].*rpm//' ${TEMPFILE}
   if [ $? -eq 0 ]; then
-    if [ $debug -gt 0 ]; then echo -n .;fi; 
+    if [ $debug -gt 0 ]; then echo -n .;fi;
   else echo "fixup of downloaded page failed. Fix!"; exit 1;
   fi
-  sed -n -e '/downloads.mysql.com/{p;n}' ${TEMPFILE} > ${FILE} 
+  sed -n -e '/downloads.mysql.com/{p;n}' ${TEMPFILE} > ${FILE}
   if [ $? -eq 0 ]; then
     if [ $debug -gt 0 ]; then echo -n .;fi;
   else echo "fixup of ${TEMPFILE}  into ${FILE} failed. Fix!"; exit 1;
   fi
   getArchive "i386" $GETi386 5 $GET5 $NODOTVER $GET
   getArchive "x86_64" $GETx86_64 5 $GET5 $NODOTVER $GET
-  if [ $NODOTVER -gt 52 ]; then 
+  if [ $NODOTVER -gt 52 ]; then
     getArchive "i386" $GETi386 6 $GET6 $NODOTVER $GET
     getArchive "x86_64" $GETx86_64 6 $GET6 $NODOTVER $GET
   fi
   if [ $debug -gt 2 ]; then echo "Not cleaning up, as debug is enabled. please delete ${TEMPFILE} and ${FILE} manually"; else cleanUp;fi
-} 
+}
 getTmp() {
   if [ $debug -gt 1 ]; then echo "DEBUG: getTmp: $1";fi
-  if [ -z $1 ]; then 
+  if [ -z $1 ]; then
     echo "getTmp did not get a MySQL Version. cannot continue"; exit 1;
   fi
   if [ -z $2 ]; then
@@ -420,7 +423,7 @@ getTmp() {
     echo "got unexpected value of $2 for OS Major version. Expecting 5 or 6. Cannot continue"; exit 1
   fi
 
-  if [ $debug -gt 2 ]; then 
+  if [ $debug -gt 2 ]; then
     echo "Running: /usr/bin/curl -F \"current_os=${OSVAR},version=${DOTVER}\" http://dev.mysql.com/downloads/mysql/#downloads -o ${TEMPFILE}"
     /usr/bin/curl -F "current_os=${OSVAR},version=${DOTVER}" http://dev.mysql.com/downloads/mysql/${DOTVER}.html#downloads -o ${TEMPFILE}
   else
@@ -439,12 +442,12 @@ getTmp() {
   if [ $2 -eq 5 ]; then
     getPkg "i386" $GETi386 5 $GET5 $NODOTVER $GET
     getPkg "x86_64" $GETx86_64 5 $GET5 $NODOTVER $GET
-  elif [ $2 -eq 6 ]; then 
+  elif [ $2 -eq 6 ]; then
     getPkg "i386" $GETi386 6 $GET6 $NODOTVER $GET
     getPkg "x86_64" $GETx86_64 6 $GET6 $NODOTVER $GET
   fi
   if [ $debug -gt 1 ]; then echo "Not cleaning up, as debug is enabled. please delete ${TEMPFILE} and ${FILE} manually"; else cleanUp;fi
-} 
+}
 cleanUp() {
   /bin/rm -f ${TEMPFILE} ${FILE}
   if [ $debug -gt 0 ]; then echo; echo "Done!";fi
