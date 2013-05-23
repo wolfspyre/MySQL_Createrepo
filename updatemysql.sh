@@ -233,11 +233,13 @@ updateRepo() {
     elif [ -z $2 ]; then echo "updateRepo: Did not get the arch I should update the rhel $1 repo for. cannot continue";exit 1
     elif [ -z $3 ]; then echo "updateRepo: Did not get the mysql version I should update the rhel $1 $2 repo for. cannot continue";exit 1;
     elif [ -z $4 ]; then echo "updateRepo: Cannot determine if I should update the rhel $1 $2 repo for MySQL $3. cannot continue";exit 1;
+    elif [ -z $5 ]; then echo "updateRepo: Cannot determine if I should prune '-community' packages. cannot continue";exit 1;
     else
       MAJOR=$1
       ARCH=$2
       DOTVER=$3
       UPDATE=$4
+      COMMUNITY=$5
     fi
     if [ $UPDATE ]; then
       if [ -d ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER} ]; then
@@ -245,6 +247,16 @@ updateRepo() {
         if [ $debug -gt 1 ]; then
           #
           #Extra debug and noise version
+
+          #Since occasionally community packages end up in the repos, make sure we can nuke if we don't want them.
+          if [ $COMMUNITY == false ]; then
+            echo "Checking to make sure no community packages exist in a repo dir"
+            if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-community'|wc -l` -gt 1 ]; then
+              echo "Found a match:"; ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages| grep '\-community';
+              echo "Removing the matching files. If the files match erroneously, we'll need to refine the grep"
+              cd ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages; rm -f  ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/*\-community*;
+            fi
+          fi
           #Since Oracle seems to keep changing things. Lets make sure to prune any 5.6 pkgs from 5.5 repos
           if [ $DOTVER == "5.5" ]; then
             echo -n "Checking to make sure no 5.6 packages exist in a 5.5 repo dir"
@@ -268,6 +280,14 @@ updateRepo() {
           if [ $debug -gt 0 ]; then echo; /usr/bin/createrepo -s sha ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER} ; echo -n ".";
           #
           # Only say anything if we actually find a match, but since Oracle seems to keep changing things.
+          #Since occasionally community packages end up in the repos, make sure we can nuke if we don't want them.
+          if [ $COMMUNITY == false ]; then
+            if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-community'|wc -l` -gt 1 ]; then
+              echo "Found a community package and I'm supposed to remove them:"; ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages| grep '\-community';
+              echo "Removing the matching files. If the files match erroneously, we'll need to refine the grep"
+              cd ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages; rm -f  ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/*\-community*;
+            fi
+          fi
           # Lets make sure to prune any 5.6 pkgs from 5.5 repos
           if [ $DOTVER == "5.5" ]; then
             if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-5\.6.'|wc -l` -gt 1 ]; then
@@ -288,6 +308,15 @@ updateRepo() {
           fi
         else /usr/bin/createrepo -s sha ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER} >/dev/null 2>&1;
           #Lets be super quiet about this.
+
+          #Since occasionally community packages end up in the repos, make sure we can nuke if we don't want them.
+          if [ $COMMUNITY == false ]; then
+            if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-community'|wc -l` -gt 1 ]; then
+              echo " Found a community package and I'm supposed to remove them:"; ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages| grep '\-community';
+              echo "Removing the matching files. If the files match erroneously, we'll need to refine the grep"
+              cd ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages; rm -f  ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages/*\-community*;
+            fi
+          fi
           #Since Oracle seems to keep changing things. Lets make sure to prune any 5.6 pkgs from 5.5 repos
           if [ $DOTVER == "5.5" ]; then
             if [ `ls -la ${TOPDIR}/${MAJOR}/${ARCH}/${DOTVER}/Packages |grep '\-5\.6.'|wc -l` -gt 1 ]; then
@@ -363,7 +392,7 @@ getArchTmp() {
   #
   # Normalize the links into their expected urls and
   # remove links that are for pre-GA software, as per REPO-13
-  if [ $COMMUNITY ]; then
+  if [ $COMMUNITY == true ]; then
     #we should fetch community packages.
     sed -i -e 's/^.*\/archives/http:\/\/downloads.mysql.com\/archives/' -e 's/.rpm.*/.rpm/' -e 's/^.*_m[0-9]-[0-9].*rpm//' ${TEMPFILE}
   else
@@ -395,7 +424,11 @@ getTmp() {
   if [ -z $2 ]; then
     echo "getTmp did not get an OS major version. Cannot continue."; exit 1;
   fi
+  if [ -z $3 ]; then
+    echo "getTmp did not get community package fetching flag. Cannot continue."; exit 1;
+  fi
   #set mysql variables
+  COMMUNITY=$3
   if [ $1 -eq 51 ]; then
     NODOTVER=51
     DOTVER="5.1"
@@ -447,7 +480,12 @@ getTmp() {
   > ${TEMPFILE}
   for URL in `cat ${FILE}`; do
     if [ $debug -gt 2 ]; then echo ${URL};fi
-    CORRECT=`curl -s ${URL}|awk -Fhref=\"\/get '/cdn/ {print $2}'|egrep -v '\.(msi|zip)' |awk -Frpm '{print "http://cdn.mysql.com"$1"rpm"}'`; echo "\`---> ${CORRECT}"; echo $CORRECT >> ${TEMPFILE}
+    if [ $COMMUNITY == false ]; then
+      CORRECT=`curl -s ${URL}|awk -Fhref=\"\/get '/cdn/ {print $2}'|egrep -v '\.(msi|zip)'|egrep -v community |awk -Frpm '{print "http://cdn.mysql.com"$1"rpm"}'`;
+    else
+      CORRECT=`curl -s ${URL}|awk -Fhref=\"\/get '/cdn/ {print $2}'|egrep -v '\.(msi|zip)'|awk -Frpm '{print "http://cdn.mysql.com"$1"rpm"}'`;
+    fi
+    if [ $debug -gt 2 ]; then echo "\`---> ${CORRECT}";fi; echo $CORRECT >> ${TEMPFILE}
   done
   if [ $? -eq 0 ]; then if [ $debug -gt 0 ]; then echo -n .;fi ; else echo "fixup of ${TEMPFILE}  into ${FILE} failed. Fix!"; exit 1;fi
   if [ $2 -eq 5 ]; then
@@ -465,16 +503,16 @@ cleanUp() {
 }
 getArchTmp 51 $GETCOMMUNITY
 getArchTmp 55 $GETCOMMUNITY
-getTmp 55 5
-getTmp 55 6
+getTmp 55 5 $GETCOMMUNITY
+getTmp 55 6 $GETCOMMUNITY
 getArchTmp 56 $GETCOMMUNITY
-getTmp 56 5
-getTmp 56 6
+getTmp 56 5 $GETCOMMUNITY
+getTmp 56 6 $GETCOMMUNITY
 for UpdateVERSION in 5.1 5.5 5.6; do
-  updateRepo 5 i386   ${UpdateVERSION} $GETi386
-  updateRepo 5 x86_64 ${UpdateVERSION} $GETx86_64
+  updateRepo 5 i386   ${UpdateVERSION} $GETi386 $GETCOMMUNITY
+  updateRepo 5 x86_64 ${UpdateVERSION} $GETx86_64 $GETCOMMUNITY
 done
 for UpdateVERSION in 5.5 5.6; do
-  updateRepo 6 i386   ${UpdateVERSION} $GETi386
-  updateRepo 6 x86_64 ${UpdateVERSION} $GETx86_64
+  updateRepo 6 i386   ${UpdateVERSION} $GETi386 $GETCOMMUNITY
+  updateRepo 6 x86_64 ${UpdateVERSION} $GETx86_64 $GETCOMMUNITY
 done
