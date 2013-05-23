@@ -22,6 +22,7 @@ GETi386=false
 GET51=false
 GET55=true
 GET56=true
+GETCOMMUNITY=false
 UPDATEREPO=true
 ARCHIVEONLY=false
 TOPDIR="/repo/vendor/mysql"
@@ -318,7 +319,11 @@ getArchTmp() {
   if [ $debug -gt 1 ]; then echo "DEBUG: getArchTmp: $1";fi
   if [ -z $1 ]; then
     echo "getArchTmp did not get a MySQL Version. cannot continue"; exit 1;
+  elif [ -z $2 ]; then
+    echo "getArchTmp: Did not get told if we should download community packages."; exit 1;
+
   fi
+    COMMUNITY=$2
     if [ $1 -eq 51 ]; then
       NODOTVER=51
       DOTVER="5.1"
@@ -358,7 +363,13 @@ getArchTmp() {
   #
   # Normalize the links into their expected urls and
   # remove links that are for pre-GA software, as per REPO-13
-  sed -i -e 's/^.*\/archives/http:\/\/downloads.mysql.com\/archives/' -e 's/.rpm.*/.rpm/' -e 's/^.*_m[0-9]-[0-9].*rpm//' ${TEMPFILE}
+  if [ $COMMUNITY ]; then
+    #we should fetch community packages.
+    sed -i -e 's/^.*\/archives/http:\/\/downloads.mysql.com\/archives/' -e 's/.rpm.*/.rpm/' -e 's/^.*_m[0-9]-[0-9].*rpm//' ${TEMPFILE}
+  else
+    #we should ignore community packages.
+    sed -i -e 's/^.*\/archives/http:\/\/downloads.mysql.com\/archives/' -e 's/.rpm.*/.rpm/' -e 's/^.*_m[0-9]-[0-9].*rpm//' -e 's/^.*community.*rpm//' ${TEMPFILE}
+  fi
   if [ $? -eq 0 ]; then
     if [ $debug -gt 0 ]; then echo -n .;fi;
   else echo "fixup of downloaded page failed. Fix!"; exit 1;
@@ -424,10 +435,10 @@ getTmp() {
   fi
 
   if [ $debug -gt 2 ]; then
-    echo "Running: /usr/bin/curl -F \"current_os=${OSVAR},version=${DOTVER}\" http://dev.mysql.com/downloads/mysql/#downloads -o ${TEMPFILE}"
-    /usr/bin/curl -F "current_os=${OSVAR},version=${DOTVER}" http://dev.mysql.com/downloads/mysql/${DOTVER}.html#downloads -o ${TEMPFILE}
+    echo "Running: /usr/bin/curl -F \"previous_os=${OSVAR}%26version=${DOTVER}\" http://dev.mysql.com/downloads/mysql/#downloads -o ${TEMPFILE}"
+    /usr/bin/curl -F "previous_os=${OSVAR}%26version=${DOTVER}" http://dev.mysql.com/downloads/mysql/${DOTVER}.html#downloads -o ${TEMPFILE}
   else
-    /usr/bin/curl -s -F "current_os=${OSVAR},version=${DOTVER}" http://dev.mysql.com/downloads/mysql/${DOTVER}.html#downloads -o ${TEMPFILE}
+    /usr/bin/curl -s -F "previous_os=${OSVAR}%26version=${DOTVER}" http://dev.mysql.com/downloads/mysql/${DOTVER}.html#downloads -o ${TEMPFILE}
   fi
   if [ $? -eq 0 ]; then if [ $debug -gt 0 ]; then echo -n .;fi; else echo "Download of file failed. Fix!"; exit 1;fi
   awk -Fhref=\" '/mirror.php/ {print $2}' ${TEMPFILE} |awk -F\" '{print "http://dev.mysql.com"$1}' > ${FILE}
@@ -435,8 +446,8 @@ getTmp() {
   if [ $debug -gt 2 ]; then echo "getTmp: DEBUG: getting real URL for"; fi
   > ${TEMPFILE}
   for URL in `cat ${FILE}`; do
-     if [ $debug -gt 2 ]; then echo ${URL};fi
-     curl -s ${URL}|awk -Fhref=\"\/get '/cdn/ {print $2}'|awk -Frpm '{print "http://cdn.mysql.com"$1"rpm"}' >> ${TEMPFILE}
+    if [ $debug -gt 2 ]; then echo ${URL};fi
+    CORRECT=`curl -s ${URL}|awk -Fhref=\"\/get '/cdn/ {print $2}'|egrep -v '\.(msi|zip)' |awk -Frpm '{print "http://cdn.mysql.com"$1"rpm"}'`; echo "\`---> ${CORRECT}"; echo $CORRECT >> ${TEMPFILE}
   done
   if [ $? -eq 0 ]; then if [ $debug -gt 0 ]; then echo -n .;fi ; else echo "fixup of ${TEMPFILE}  into ${FILE} failed. Fix!"; exit 1;fi
   if [ $2 -eq 5 ]; then
@@ -452,11 +463,11 @@ cleanUp() {
   /bin/rm -f ${TEMPFILE} ${FILE}
   if [ $debug -gt 0 ]; then echo; echo "Done!";fi
 }
-getArchTmp 51
-getArchTmp 55
+getArchTmp 51 $GETCOMMUNITY
+getArchTmp 55 $GETCOMMUNITY
 getTmp 55 5
 getTmp 55 6
-getArchTmp 56
+getArchTmp 56 $GETCOMMUNITY
 getTmp 56 5
 getTmp 56 6
 for UpdateVERSION in 5.1 5.5 5.6; do
